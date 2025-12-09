@@ -1,5 +1,7 @@
 # ios_asr
 
+**中文** | [English](README_EN.md)
+
 一个基于 Pigeon 实现的 iOS 语音识别（ASR）Flutter 插件，使用 Apple 的 SFSpeechRecognizer 和 AVAudioEngine。
 
 ## 功能特性
