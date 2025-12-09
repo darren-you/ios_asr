@@ -1,0 +1,761 @@
+import 'dart:async';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:ios_asr/ios_asr.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CupertinoApp(
+      title: 'iOS ASR Example',
+      theme: CupertinoThemeData(
+        primaryColor: CupertinoColors.systemBlue,
+        scaffoldBackgroundColor: Color(0xFFEDEDED),
+        barBackgroundColor: CupertinoColors.white,
+        textTheme: CupertinoTextThemeData(
+          primaryColor: CupertinoColors.black,
+        ),
+      ),
+      home: AsrTabbedPage(),
+    );
+  }
+}
+
+class AsrTabbedPage extends StatelessWidget {
+  const AsrTabbedPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.mic),
+            label: '实时识别',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.settings),
+            label: '高级功能',
+          ),
+        ],
+      ),
+      tabBuilder: (context, index) {
+        return CupertinoTabView(
+          builder: (context) {
+            if (index == 0) {
+              return const AsrHomePage();
+            } else {
+              return const AdvancedFeaturesPage();
+            }
+          },
+        );
+      },
+    );
+  }
+}
+
+class AsrHomePage extends StatefulWidget {
+  const AsrHomePage({super.key});
+
+  @override
+  State<AsrHomePage> createState() => _AsrHomePageState();
+}
+
+class _AsrHomePageState extends State<AsrHomePage> {
+  final _asr = IosAsr();
+  
+  String _recognizedText = '';
+  AsrStatus _status = AsrStatus.stopped;
+  double _soundLevel = 0.0;
+  List<AsrLocaleInfo> _locales = [];
+  String? _selectedLocale;
+  String _errorMessage = '';
+
+  StreamSubscription<AsrStatus>? _statusSubscription;
+  StreamSubscription<AsrRecognitionResult>? _resultSubscription;
+  StreamSubscription<AsrError>? _errorSubscription;
+  StreamSubscription<double>? _soundLevelSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAsr();
+  }
+
+  Future<void> _initAsr() async {
+    _statusSubscription = _asr.statusStream.listen((status) {
+      if (mounted) {
+        setState(() {
+          _status = status;
+        });
+      }
+    });
+
+    _resultSubscription = _asr.resultStream.listen((result) {
+      if (mounted) {
+        setState(() {
+          _recognizedText = result.text;
+        });
+      }
+    });
+
+    _errorSubscription = _asr.errorStream.listen((error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '${error.code}: ${error.message}';
+        });
+      }
+    });
+
+    _soundLevelSubscription = _asr.soundLevelStream.listen((level) {
+      if (mounted) {
+        setState(() {
+          _soundLevel = level;
+        });
+      }
+    });
+
+    final hasPermission = await _asr.hasPermission();
+    if (!hasPermission) {
+      await _asr.requestPermission();
+    }
+
+    final locales = await _asr.getAvailableLocales();
+    setState(() {
+      _locales = locales;
+      if (locales.isNotEmpty) {
+        _selectedLocale = locales.firstWhere(
+          (l) => l.identifier.startsWith('zh'),
+          orElse: () => locales.first,
+        ).identifier;
+      }
+    });
+  }
+
+  Future<void> _startListening() async {
+    setState(() {
+      _recognizedText = '';
+      _errorMessage = '';
+    });
+    
+    try {
+      await _asr.startListening(
+        localeIdentifier: _selectedLocale,
+        partialResults: true,
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> _stopListening() async {
+    await _asr.stopListening();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('iOS ASR 示例'),
+        backgroundColor: CupertinoColors.white,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '状态',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: CupertinoColors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _statusToString(_status),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: _statusColor(_status),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_locales.isNotEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '选择语言',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          isExpanded: true,
+                          value: _selectedLocale,
+                          items: _locales.map((locale) {
+                            return DropdownMenuItem<String>(
+                              value: locale.identifier,
+                              child: Text(locale.displayName),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedLocale = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '音量',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      LinearProgressIndicator(
+                        value: _soundLevel,
+                        backgroundColor: Colors.grey[300],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '识别结果',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _recognizedText.isEmpty ? '等待语音输入...' : _recognizedText,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_errorMessage.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Card(
+                  color: Colors.red[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '错误',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _errorMessage,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _status == AsrStatus.listening
+                          ? null
+                          : _startListening,
+                      icon: const Icon(Icons.mic, size: 20),
+                      label: const Text(
+                        '开始识别',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: const Color(0xFF34C759),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFE0E0E0),
+                        disabledForegroundColor: const Color(0xFF9E9E9E),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _status == AsrStatus.listening
+                          ? _stopListening
+                          : null,
+                      icon: const Icon(Icons.stop, size: 20),
+                      label: const Text(
+                        '停止识别',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: const Color(0xFFFF3B30),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFE0E0E0),
+                        disabledForegroundColor: const Color(0xFF9E9E9E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+  }
+
+  String _statusToString(AsrStatus status) {
+    switch (status) {
+      case AsrStatus.listening:
+        return '正在监听...';
+      case AsrStatus.stopped:
+        return '已停止';
+      case AsrStatus.cancelled:
+        return '已取消';
+      case AsrStatus.done:
+        return '完成';
+      case AsrStatus.error:
+        return '错误';
+    }
+  }
+
+  Color _statusColor(AsrStatus status) {
+    switch (status) {
+      case AsrStatus.listening:
+        return Colors.green;
+      case AsrStatus.stopped:
+        return Colors.grey;
+      case AsrStatus.cancelled:
+        return Colors.orange;
+      case AsrStatus.done:
+        return Colors.blue;
+      case AsrStatus.error:
+        return Colors.red;
+    }
+  }
+
+  @override
+  void dispose() {
+    _statusSubscription?.cancel();
+    _resultSubscription?.cancel();
+    _errorSubscription?.cancel();
+    _soundLevelSubscription?.cancel();
+    super.dispose();
+  }
+}
+
+class AdvancedFeaturesPage extends StatefulWidget {
+  const AdvancedFeaturesPage({super.key});
+
+  @override
+  State<AdvancedFeaturesPage> createState() => _AdvancedFeaturesPageState();
+}
+
+class _AdvancedFeaturesPageState extends State<AdvancedFeaturesPage> {
+  final _asr = IosAsr();
+  
+  String _recognizedText = '';
+  String _detailsText = '';
+  String _errorMessage = '';
+  bool _isOnDeviceAvailable = false;
+  
+  bool _partialResults = true;
+  bool _requiresOnDevice = false;
+  bool _addsPunctuation = false;
+  String _taskHint = 'dictation';
+  String _contextualText = '';
+  
+  List<AsrLocaleInfo> _locales = [];
+  String? _selectedLocale;
+
+  StreamSubscription<AsrRecognitionResult>? _resultSubscription;
+  StreamSubscription<AsrError>? _errorSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAdvanced();
+  }
+
+  Future<void> _initAdvanced() async {
+    _resultSubscription = _asr.resultStream.listen((result) {
+      if (mounted) {
+        setState(() {
+          _recognizedText = result.text;
+          
+          final details = StringBuffer();
+          details.writeln('最终结果: ${result.isFinal}');
+          if (result.confidence != null) {
+            details.writeln('置信度: ${(result.confidence! * 100).toStringAsFixed(1)}%');
+          }
+          if (result.speakingRate != null) {
+            details.writeln('语速: ${result.speakingRate!.toStringAsFixed(2)} 词/分钟');
+          }
+          if (result.averagePauseDuration != null) {
+            details.writeln('平均停顿: ${result.averagePauseDuration!.toStringAsFixed(2)}秒');
+          }
+          if (result.segments != null && result.segments!.isNotEmpty) {
+            details.writeln('\n分段信息 (${result.segments!.length}):');
+            for (var i = 0; i < result.segments!.length && i < 5; i++) {
+              final seg = result.segments![i];
+              if (seg != null) {
+                details.writeln('  [$i] "${seg.substring}" (${seg.timestamp.toStringAsFixed(2)}s, ${(seg.confidence ?? 0 * 100).toStringAsFixed(1)}%)');
+              }
+            }
+            if (result.segments!.length > 5) {
+              details.writeln('  ... 还有 ${result.segments!.length - 5} 个分段');
+            }
+          }
+          
+          _detailsText = details.toString();
+        });
+      }
+    });
+
+    _errorSubscription = _asr.errorStream.listen((error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '${error.code}: ${error.message}';
+        });
+      }
+    });
+
+    final hasPermission = await _asr.hasPermission();
+    if (!hasPermission) {
+      await _asr.requestPermission();
+    }
+
+    final locales = await _asr.getAvailableLocales();
+    final isOnDevice = await _asr.isOnDeviceRecognitionAvailable();
+    
+    setState(() {
+      _locales = locales;
+      _isOnDeviceAvailable = isOnDevice;
+      if (locales.isNotEmpty) {
+        _selectedLocale = locales.firstWhere(
+          (l) => l.identifier.startsWith('zh'),
+          orElse: () => locales.first,
+        ).identifier;
+      }
+    });
+  }
+
+  Future<void> _startAdvancedListening() async {
+    setState(() {
+      _recognizedText = '';
+      _detailsText = '';
+      _errorMessage = '';
+    });
+    
+    try {
+      final options = AsrRecognitionOptions(
+        localeIdentifier: _selectedLocale,
+        partialResults: _partialResults,
+        requiresOnDeviceRecognition: _requiresOnDevice,
+        addsPunctuation: _addsPunctuation,
+        taskHint: _taskHint,
+        contextualStrings: _contextualText.isEmpty 
+            ? null 
+            : _contextualText.split(',').map((e) => e.trim()).toList(),
+        detectMultipleUtterances: false,
+      );
+      
+      await _asr.startListeningWithOptions(options);
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> _stopListening() async {
+    await _asr.stopListening();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '高级识别选项',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  if (_locales.isNotEmpty) ...[
+                    const Text('语言', style: TextStyle(fontWeight: FontWeight.bold)),
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedLocale,
+                      items: _locales.map((locale) {
+                        return DropdownMenuItem<String>(
+                          value: locale.identifier,
+                          child: Text(locale.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedLocale = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  const Text('任务提示', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButton<String>(
+                    isExpanded: true,
+                    value: _taskHint,
+                    items: const [
+                      DropdownMenuItem(value: 'unspecified', child: Text('未指定')),
+                      DropdownMenuItem(value: 'dictation', child: Text('听写')),
+                      DropdownMenuItem(value: 'search', child: Text('搜索')),
+                      DropdownMenuItem(value: 'confirmation', child: Text('确认')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _taskHint = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  SwitchListTile(
+                    title: const Text('部分结果'),
+                    subtitle: const Text('实时返回识别中间结果'),
+                    value: _partialResults,
+                    onChanged: (value) {
+                      setState(() {
+                        _partialResults = value;
+                      });
+                    },
+                  ),
+                  
+                  SwitchListTile(
+                    title: const Text('设备端识别'),
+                    subtitle: Text(_isOnDeviceAvailable 
+                        ? '在设备上进行识别，提升隐私' 
+                        : '不支持设备端识别'),
+                    value: _requiresOnDevice,
+                    onChanged: _isOnDeviceAvailable ? (value) {
+                      setState(() {
+                        _requiresOnDevice = value;
+                      });
+                    } : null,
+                  ),
+                  
+                  SwitchListTile(
+                    title: const Text('自动添加标点'),
+                    subtitle: const Text('iOS 16+ 支持'),
+                    value: _addsPunctuation,
+                    onChanged: (value) {
+                      setState(() {
+                        _addsPunctuation = value;
+                      });
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  const Text('上下文词汇 (逗号分隔)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextField(
+                    decoration: const InputDecoration(
+                      hintText: '例如: iPhone, iPad, Apple',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      _contextualText = value;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '识别结果',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _recognizedText.isEmpty ? '等待语音输入...' : _recognizedText,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  if (_detailsText.isNotEmpty) ...[
+                    const Divider(height: 24),
+                    const Text(
+                      '详细信息',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _detailsText,
+                      style: const TextStyle(fontSize: 12, fontFamily: 'Courier'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          
+          if (_errorMessage.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.red[50],
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '错误',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage,
+                      style: const TextStyle(fontSize: 14, color: Colors.red),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 16),
+          
+          Row(
+             children: [
+               Expanded(
+                 child: ElevatedButton.icon(
+                   onPressed: _startAdvancedListening,
+                   icon: const Icon(Icons.mic, size: 20),
+                   label: const Text(
+                     '开始高级识别',
+                     style: TextStyle(
+                       fontSize: 16,
+                       fontWeight: FontWeight.w500,
+                     ),
+                   ),
+                   style: ElevatedButton.styleFrom(
+                     padding: const EdgeInsets.symmetric(vertical: 14),
+                     backgroundColor: const Color(0xFF007AFF),
+                     foregroundColor: Colors.white,
+                   ),
+                 ),
+               ),
+               const SizedBox(width: 12),
+               Expanded(
+                 child: ElevatedButton.icon(
+                   onPressed: _stopListening,
+                   icon: const Icon(Icons.stop, size: 20),
+                   label: const Text(
+                     '停止',
+                     style: TextStyle(
+                       fontSize: 16,
+                       fontWeight: FontWeight.w500,
+                     ),
+                   ),
+                   style: ElevatedButton.styleFrom(
+                     padding: const EdgeInsets.symmetric(vertical: 14),
+                     backgroundColor: const Color(0xFFFF3B30),
+                     foregroundColor: Colors.white,
+                   ),
+                 ),
+               ),
+             ],
+           ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _resultSubscription?.cancel();
+    _errorSubscription?.cancel();
+    super.dispose();
+  }
+}

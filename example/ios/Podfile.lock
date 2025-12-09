@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - ios_asr (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - ios_asr (from `.symlinks/plugins/ios_asr/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  ios_asr:
+    :path: ".symlinks/plugins/ios_asr/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  ios_asr: 0ff2b2065e366b0664b5e743170fb1f3cc11e2fb
+
+PODFILE CHECKSUM: cc1f88378b4bfcf93a6ce00d2c587857c6008d3b
+
+COCOAPODS: 1.16.2
