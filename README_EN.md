@@ -47,8 +47,8 @@ The example folder contains a complete sample application demonstrating how to u
 
 <table>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AsrHomePage.PNG" alt="Real-time Recognition Page" width="300"/></td>
-    <td><img src="https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AdvancedFeaturesPage.PNG" alt="Advanced Features Page" width="300"/></td>
+    <td><img src="https://github.com/darren-you/ios_asr/blob/master/docs/AsrHomePage.PNG" width="300"/></td>
+    <td><img src="https://github.com/darren-you/ios_asr/blob/master/docs/AdvancedFeaturesPage.PNG" width="300"/></td>
   </tr>
   <tr>
     <td align="center"><b>Real-time Recognition</b></td>
