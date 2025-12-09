@@ -39,6 +39,14 @@ dependencies:
 <string>This app needs access to speech recognition to convert your speech to text</string>
 ```
 
+## 示例应用
+
+example包含一个完整的示例应用，展示了如何使用 ios_asr 插件进行实时语音识别。
+
+![实时识别页面](https://github.com/darren-you/ios_asr/blob/master/docs/AsrHomePage.PNG)
+
+![高级功能页面](https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AdvancedFeaturesPage.PNG)
+
 ## 使用示例
 
 ### 基本用法
