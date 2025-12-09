@@ -45,8 +45,8 @@ example包含一个完整的示例应用，展示了如何使用 ios_asr 插件�
 
 <table>
   <tr>
-    <td><img src="https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AsrHomePage.PNG" alt="实时识别页面" width="300"/></td>
-    <td><img src="https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AdvancedFeaturesPage.PNG" alt="高级功能页面" width="300"/></td>
+    <td><img src="https://github.com/darren-you/ios_asr/blob/master/docs/AsrHomePage.PNG" width="300"/></td>
+    <td><img src="https://github.com/darren-you/ios_asr/blob/master/docs/AdvancedFeaturesPage.PNG" width="300"/></td>
   </tr>
   <tr>
     <td align="center"><b>实时识别</b></td>
