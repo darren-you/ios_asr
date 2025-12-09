@@ -45,7 +45,7 @@ example包含一个完整的示例应用，展示了如何使用 ios_asr 插件�
 
 ![实时识别页面](https://github.com/darren-you/ios_asr/blob/master/docs/AsrHomePage.PNG)
 
-![高级功能页面](https://raw.githubusercontent.com/darren-you/ios_asr/main/docs/AdvancedFeaturesPage.PNG)
+![高级功能页面](https://github.com/darren-you/ios_asr/blob/master/docs/AdvancedFeaturesPage.PNG)
 
 ## 使用示例
 
